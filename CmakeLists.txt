@@ -1,78 +1,81 @@
 cmake_minimum_required(VERSION 3.22)
 
 project(variational-cluster-toolkit
-        VERSION 0.1.0
-        DESCRIPTION "Modern C++20 toolkit for variational Bayesian clustering"
-        LANGUAGES CXX)
+    VERSION 0.1.0
+    DESCRIPTION "Modern C++20 toolkit for variational Bayesian clustering"
+    LANGUAGES CXX)
 
 # ─── compiler rules ───────────────────────────────────────────────────────────
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF) 
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CPM_DOWNLOAD_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CPM.cmake")
-if (NOT EXISTS "${CPM_DOWNLOAD_LOCATION}")
+if(NOT EXISTS "${CPM_DOWNLOAD_LOCATION}")
     message(STATUS "Downloading CPM.cmake …")
     file(DOWNLOAD
-         https://github.com/cpm-cmake/CPM.cmake/releases/latest/download/CPM.cmake
-         "${CPM_DOWNLOAD_LOCATION}" TLS_VERIFY ON)
-endif ()
+        https://github.com/cpm-cmake/CPM.cmake/releases/latest/download/CPM.cmake
+        "${CPM_DOWNLOAD_LOCATION}" TLS_VERIFY ON)
+endif()
 include("${CPM_DOWNLOAD_LOCATION}")
 
 # ─── Project‑wide options -----------------------------------------------------
-option(VCTK_BUILD_TESTS      "Build unit tests"            ON)
-option(VCTK_BUILD_EXAMPLES   "Build examples"              OFF)
-option(VCTK_BUILD_DOCS       "Build Doxygen/Sphinx docs"   OFF)
+option(VCTK_BUILD_TESTS "Build unit tests" ON)
+option(VCTK_BUILD_EXAMPLES "Build examples" OFF)
+option(VCTK_BUILD_DOCS "Build Doxygen/Sphinx docs" OFF)
 
 CPMAddPackage(
     NAME Eigen3
     GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
     GIT_TAG 3.4.0
-    DOWNLOAD_ONLY    TRUE
+    DOWNLOAD_ONLY TRUE
     OPTIONS "EIGEN_BUILD_DOC OFF" "EIGEN_BUILD_PKGCONFIG OFF"
 )
 add_library(Eigen3::Eigen INTERFACE IMPORTED)
 target_include_directories(Eigen3::Eigen INTERFACE "${Eigen3_SOURCE_DIR}")
 
 file(GLOB_RECURSE VCTK_SOURCES CONFIGURE_DEPENDS
-     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 add_library(vctk STATIC ${VCTK_SOURCES})
 add_library(vctk::vctk ALIAS vctk)
 
 target_include_directories(vctk
     PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>)
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
 
 target_link_libraries(vctk
     PUBLIC
-        Eigen3::Eigen)
+    Eigen3::Eigen)
 
 target_compile_features(vctk PUBLIC cxx_std_20)
 
-if (VCTK_BUILD_TESTS)
+if(VCTK_BUILD_TESTS)
     enable_testing()
     add_executable(vctk_comutils_test test/test_comutils.cpp)
     target_link_libraries(vctk_comutils_test PRIVATE vctk::vctk Eigen3::Eigen)
     add_test(NAME comutils_sanity COMMAND vctk_comutils_test)
-endif ()
+    add_executable(vctk_probutils_test test/test_probutils.cpp)
+    target_link_libraries(vctk_probutils_test PRIVATE vctk::vctk Eigen3::Eigen)
+    add_test(NAME probutils_sanity COMMAND vctk_probutils_test)
+endif()
 
 # ─── Installation & export ----------------------------------------------------
 include(GNUInstallDirs)
 
 install(TARGETS vctk
-        EXPORT  vctkTargets
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    EXPORT vctkTargets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 install(EXPORT vctkTargets
-        FILE vctkConfig.cmake
-        NAMESPACE vctk::
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/vctk)
+    FILE vctkConfig.cmake
+    NAMESPACE vctk::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/vctk)
 
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
