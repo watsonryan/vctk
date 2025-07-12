@@ -1,4 +1,26 @@
-#pragma once // Modern, non‑intrusive include guard
+/**
+ * Various common utilities
+ * ------------------------
+ *
+ *                        _..._
+ *                     .-'_..._''.
+ *  .----.     .----..' .'      '.\          .
+ *   \    \   /    // .'                   .'|
+ *    '   '. /'   /. '               .|  .'  |
+ *    |    |'    / | |             .' |_<    |
+ *    |    ||    | | |           .'     ||   | ____
+ *    '.   `'   .' . '          '--.  .-'|   | \ .'
+ *     \        /   \ '.          .|  |  |   |/  .
+ *      \      /     '. `._____.-'/|  |  |    /\  \
+ *       '----'        `-.______ / |  '.'|   |  \  \
+ *                              `  |   / '    \  \  \
+ *                                 `'-' '------'  '---'
+ *
+ * @author watson
+ * @date 2025-07-11
+ */
+
+#pragma once
 
 #include <Eigen/Dense>
 #include <algorithm>
@@ -45,8 +67,7 @@ void arrfind(const ArrayXb &expression, Eigen::ArrayXi &indtrue,
  *          the original `X`.
  */
 [[nodiscard]] Eigen::ArrayXi partobs(const Eigen::MatrixXd &X,
-                                     const ArrayXb &Xpart,
-                                     Eigen::MatrixXd &Xk);
+                                     const ArrayXb &Xpart, Eigen::MatrixXd &Xk);
 
 /** Augment assignment matrix `qZ` with a new split column.
  *

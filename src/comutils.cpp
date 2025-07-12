@@ -1,7 +1,3 @@
-/**
- * variational‑cluster‑toolkit — modern rewrite of libcluster
- * License‑Identifier: LGPL‑3.0-or-later
- */
 #include "comutils.hpp"
 
 #include <algorithm>
@@ -30,22 +26,20 @@ using Index = Eigen::Index;
 }
 
 void arrfind(const ArrayXb &expression, ArrayXi &indtrue, ArrayXi &indfalse) {
-  indtrue = make_indices(expression, /*want_true=*/true);
-  indfalse = make_indices(expression, /*want_true=*/false);
+  indtrue = make_indices(expression, true);
+  indfalse = make_indices(expression, false);
 }
 
 [[nodiscard]] ArrayXi partobs(const MatrixXd &X, const ArrayXb &Xpart,
                               MatrixXd &Xk) {
-  const ArrayXi pidx = make_indices(Xpart, /*want_true=*/true);
+  const ArrayXi pidx = make_indices(Xpart, true);
 
   Xk.resize(pidx.size(), X.cols());
   for (Index row = 0; row < pidx.size(); ++row)
     Xk.row(row) = X.row(pidx(row));
 
-  return pidx; // copy‑elided (NRVO / move)
+  return pidx;
 }
-
-// ---------------------------------------------------------------------------
 
 [[nodiscard]] MatrixXd auglabels(const double k, const ArrayXi &map,
                                  const ArrayXb &Zsplit, const MatrixXd &qZ) {
@@ -53,9 +47,9 @@ void arrfind(const ArrayXb &expression, ArrayXi &indtrue, ArrayXi &indfalse) {
     throw std::invalid_argument("map and Zsplit must be the same size");
 
   const Index K = qZ.cols();
-  const ArrayXi split_idx = make_indices(Zsplit, /*want_true=*/true);
+  const ArrayXi split_idx = make_indices(Zsplit, true);
 
-  MatrixXd qZaug = qZ; // deep copy
+  MatrixXd qZaug = qZ;
   qZaug.conservativeResize(Eigen::NoChange, K + 1);
   qZaug.col(K).setZero();
 

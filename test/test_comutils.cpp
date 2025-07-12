@@ -3,7 +3,7 @@
 
 #include <Eigen/Dense>
 
-#include "comutils.hpp"      // must come *before* the using‑directive
+#include "comutils.hpp"
 
 namespace {
 
