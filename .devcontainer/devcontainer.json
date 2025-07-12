@@ -1,0 +1,24 @@
+{
+  "name": "vctk",
+  "build": { "dockerfile": "Dockerfile", "context": ".." },
+
+  "settings": {
+    "terminal.integrated.defaultProfile.linux": "zsh",
+    "cmake.configureOnOpen": true
+  },
+
+  "extensions": [
+    "ms-vscode.cpptools",
+    "ms-vscode.cmake-tools",
+    "twxs.cmake",
+    "ms-vscode.cpptools-extension-pack",
+    "ms-vscode.cmake-tools",
+    "xaver.clang-format",
+  ],
+
+  "postCreateCommand": [
+    "git config --global --add safe.directory /workspaces/$(basename $PWD)"
+  ],
+
+  "remoteUser": "vscode"
+}
