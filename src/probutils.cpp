@@ -22,10 +22,7 @@ constexpr int kMaxIter = 100;
 /* Element‑wise digamma implementation
  * Valid for positive real x.
  */
-[[nodiscard]] double digamma_scalar(double x) noexcept {
-  // Euler‑Mascheroni γ ≈ 0.57721;
-  constexpr double kEulerGamma = 0.57721566490153286060651209;
-
+[[nodiscard]] double digamma_impl(double x) noexcept {
   if (std::isnan(x) || std::isinf(x))
     return std::numeric_limits<double>::quiet_NaN();
 
@@ -80,6 +77,7 @@ Eigen::RowVectorXd mean(const std::vector<Eigen::MatrixXd> &X) noexcept(false) {
     sum += m.colwise().sum();
     Ntotal += m.rows();
   }
+  throw_if(Ntotal == 0, "mean: total observation count is zero");
   return sum / static_cast<double>(Ntotal);
 }
 
@@ -111,6 +109,7 @@ Eigen::MatrixXd cov(const std::vector<Eigen::MatrixXd> &Xv) noexcept(false) {
     mu += X.colwise().sum();
     Ntotal += X.rows();
   }
+  throw_if(Ntotal < 2, "cov: need at least two total observations");
   mu /= static_cast<double>(Ntotal);
 
   // 2nd pass — covariance accumulation
@@ -171,11 +170,15 @@ double eigpower(Eigen::Ref<const Eigen::MatrixXd> A,
   for (int iter = 0; iter < kMaxIter && delta > kEigConvThresh; ++iter) {
     v.noalias() = A * eigvec;
     eigval = v.norm();
+    if (eigval <= std::numeric_limits<double>::epsilon()) {
+      eigvec = prev;
+      return 0.0;
+    }
     eigvec = v / eigval;
     delta = (eigvec - prev).norm();
     prev = eigvec;
   }
-  return eigval;
+  return eigvec.dot(A * eigvec);
 }
 
 double logdet(Eigen::Ref<const Eigen::MatrixXd> A) noexcept(false) {
@@ -191,11 +194,13 @@ double logdet(Eigen::Ref<const Eigen::MatrixXd> A) noexcept(false) {
 //  Special‑function helpers
 // ─────────────────────────────────────────────────────────────────────────────
 Eigen::MatrixXd mxdigamma(Eigen::Ref<const Eigen::MatrixXd> X) noexcept {
-  return X.unaryExpr([](double v) { return digamma_scalar(v); });
+  return X.unaryExpr([](double v) { return digamma_impl(v); });
 }
 
 Eigen::MatrixXd mxlgamma(Eigen::Ref<const Eigen::MatrixXd> X) noexcept {
   return X.unaryExpr([](double v) { return std::lgamma(v); });
 }
+
+double digamma(double x) noexcept { return digamma_impl(x); }
 
 } // namespace probutils

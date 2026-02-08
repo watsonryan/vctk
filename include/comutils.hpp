@@ -71,10 +71,11 @@ void arrfind(const ArrayXb &expression, Eigen::ArrayXi &indtrue,
 
 /** Augment assignment matrix `qZ` with a new split column.
  *
- * @throws std::invalid_argument  if `map.size() != Zsplit.size()`.
+ * @throws std::invalid_argument  on shape mismatch.
+ * @throws std::out_of_range      on invalid cluster/map indices.
  * @return *(N × (K + 1))* assignment probability matrix.
  */
-[[nodiscard]] Eigen::MatrixXd auglabels(double k, const Eigen::ArrayXi &map,
+[[nodiscard]] Eigen::MatrixXd auglabels(Eigen::Index k, const Eigen::ArrayXi &map,
                                         const ArrayXb &Zsplit,
                                         const Eigen::MatrixXd &qZ);
 

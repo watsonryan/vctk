@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cmath>
 #include <iostream>
+#include <stdexcept>
 
 #include <Eigen/Dense>
 
@@ -97,6 +98,11 @@ void test_eig_helpers() {
 
   double ld = probutils::logdet(M);
   assert(eq(ld, std::log(6.0)));
+
+  MatrixXd Z = MatrixXd::Zero(2, 2);
+  double zero_eval = probutils::eigpower(Z, eigvec);
+  assert(eq(zero_eval, 0.0));
+  assert(eq(eigvec.norm(), 1.0));
 }
 
 // -----------------------------------------------------------------------------
@@ -119,6 +125,25 @@ void test_special_functions() {
   assert(eq(psi_x_plus, psi_x + 1.0 / x, 1e-8));
 }
 
+void test_group_stats_validation() {
+  std::vector<MatrixXd> empty_rows{MatrixXd(0, 2), MatrixXd(0, 2)};
+  bool threw = false;
+  try {
+    (void)probutils::mean(empty_rows);
+  } catch (const std::invalid_argument &) {
+    threw = true;
+  }
+  assert(threw);
+
+  threw = false;
+  try {
+    (void)probutils::cov(empty_rows);
+  } catch (const std::invalid_argument &) {
+    threw = true;
+  }
+  assert(threw);
+}
+
 } // namespace
 
 int main() {
@@ -128,6 +153,7 @@ int main() {
   test_mahalanobis();
   test_eig_helpers();
   test_special_functions();
+  test_group_stats_validation();
 
   std::cout << "All probutils tests passed ✔️\n";
   return 0;

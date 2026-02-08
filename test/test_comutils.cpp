@@ -1,5 +1,7 @@
 #include <cassert>
+#include <cmath>
 #include <iostream>
+#include <stdexcept>
 
 #include <Eigen/Dense>
 
@@ -77,12 +79,47 @@ void test_auglabels() {
   assert(std::abs(qZaug(3, 0) - 0.30) < eps);
 }
 
+// ------------------------------------------------------------------
+// 4. input validation
+// ------------------------------------------------------------------
+void test_validation() {
+  MatrixXd X(3, 1);
+  X << 1, 2, 3;
+  ArrayXb bad_mask(2);
+  bad_mask << true, false;
+  MatrixXd Xk;
+
+  bool threw = false;
+  try {
+    (void)comutils::partobs(X, bad_mask, Xk);
+  } catch (const std::invalid_argument &) {
+    threw = true;
+  }
+  assert(threw);
+
+  ArrayXi map(3);
+  map << 0, 1, 3; // invalid row index for a 3-row qZ
+  ArrayXb split(3);
+  split << true, false, true;
+  MatrixXd qZ(3, 1);
+  qZ << 1.0, 1.0, 1.0;
+
+  threw = false;
+  try {
+    (void)comutils::auglabels(/*k=*/0, map, split, qZ);
+  } catch (const std::out_of_range &) {
+    threw = true;
+  }
+  assert(threw);
+}
+
 } // namespace
 
 int main() {
   test_arrfind();
   test_partobs();
   test_auglabels();
+  test_validation();
 
   std::cout << "All comutils tests passed ✔️\n";
   return 0;

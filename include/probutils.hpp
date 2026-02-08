@@ -85,6 +85,8 @@ logdet(Eigen::Ref<const Eigen::MatrixXd> A) noexcept(false);
 // 4. Element‑wise special functions (never throw)
 // ═════════════════════════════════════════════════════════════════════════════
 
+[[nodiscard]] double digamma(double x) noexcept;
+
 [[nodiscard]] Eigen::MatrixXd
 mxdigamma(Eigen::Ref<const Eigen::MatrixXd> X) noexcept;
 
