@@ -3,9 +3,10 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <fmt/format.h>
 #include <fstream>
-#include <iostream>
 #include <random>
+#include <spdlog/spdlog.h>
 #include <stdexcept>
 #include <vector>
 
@@ -89,7 +90,8 @@ void write_points_csv(const std::filesystem::path &path, const Eigen::MatrixXd &
                       const Eigen::MatrixXd &qZ) {
   std::ofstream out(path);
   if (!out)
-    throw std::runtime_error("failed to open points CSV for writing");
+    throw std::runtime_error(
+        fmt::format("failed to open points CSV for writing: {}", path.string()));
 
   out << "x,y,cluster,max_prob\n";
   for (Eigen::Index i = 0; i < X.rows(); ++i) {
@@ -104,7 +106,8 @@ void write_centers_csv(const std::filesystem::path &path,
                        const distributions::StickBreak &weights) {
   std::ofstream out(path);
   if (!out)
-    throw std::runtime_error("failed to open centers CSV for writing");
+    throw std::runtime_error(
+        fmt::format("failed to open centers CSV for writing: {}", path.string()));
 
   const Eigen::ArrayXd w = weights.Elogweight().exp();
 
@@ -121,7 +124,8 @@ void write_merged_centers_csv(
     const std::vector<vctk::merge::MixtureComponent> &gmm) {
   std::ofstream out(path);
   if (!out)
-    throw std::runtime_error("failed to open merged centers CSV for writing");
+    throw std::runtime_error(fmt::format(
+        "failed to open merged centers CSV for writing: {}", path.string()));
 
   out << "cluster,mean_x,mean_y,weight\n";
   for (std::size_t k = 0; k < gmm.size(); ++k) {
@@ -170,19 +174,19 @@ int main() {
     write_centers_csv(centers_csv, clusters2, weights2);
     write_merged_centers_csv(merged_centers_csv, merged);
 
-    std::cout << "VDP + Merge complete\n";
-    std::cout << "Batch1: N=" << X1.rows() << ", D=" << X1.cols()
-              << ", clusters=" << clusters1.size() << ", F=" << F1 << "\n";
-    std::cout << "Batch2: N=" << X2.rows() << ", D=" << X2.cols()
-              << ", clusters=" << clusters2.size() << ", F=" << F2 << "\n";
-    std::cout << "Merged global components: " << merged.size() << "\n";
-    std::cout << "Wrote: " << points_csv << "\n";
-    std::cout << "Wrote: " << centers_csv << "\n";
-    std::cout << "Wrote: " << merged_centers_csv << "\n";
+    spdlog::info("VDP + Merge complete");
+    spdlog::info("Batch1: N={} D={} clusters={} F={}", X1.rows(), X1.cols(),
+                 clusters1.size(), F1);
+    spdlog::info("Batch2: N={} D={} clusters={} F={}", X2.rows(), X2.cols(),
+                 clusters2.size(), F2);
+    spdlog::info("Merged global components: {}", merged.size());
+    spdlog::info("Wrote: {}", points_csv.string());
+    spdlog::info("Wrote: {}", centers_csv.string());
+    spdlog::info("Wrote: {}", merged_centers_csv.string());
 
     return 0;
   } catch (const std::exception &e) {
-    std::cerr << "Error: " << e.what() << '\n';
+    spdlog::error("Error: {}", e.what());
     return 1;
   }
 }

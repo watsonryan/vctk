@@ -118,7 +118,6 @@ public:
 private:
   // prior
   double alpha_p_{ALPHA1PRIOR};
-  double F_p_{0.0};
 
   // posterior
   Eigen::ArrayXd alpha_;

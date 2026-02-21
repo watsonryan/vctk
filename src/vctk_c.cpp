@@ -3,10 +3,14 @@
 #include <algorithm>
 #include <cstring>
 #include <exception>
+#include <functional>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include <Eigen/Core>
+
+#include <spdlog/spdlog.h>
 
 #include "vctk.hpp"
 
@@ -24,6 +28,35 @@ void write_error(char *out, const int cap, const char *msg) {
 void clear_error(char *out, const int cap) {
   if (out != nullptr && cap > 0) {
     out[0] = '\0';
+  }
+}
+
+template <typename Fn>
+int run_with_status(char *error_message_out, const int error_message_capacity,
+                    Fn &&fn) {
+  try {
+    return std::invoke(std::forward<Fn>(fn));
+  } catch (const std::invalid_argument &e) {
+    spdlog::error("vctk_c invalid argument: {}", e.what());
+    write_error(error_message_out, error_message_capacity, e.what());
+    return VCTK_STATUS_INVALID_ARGUMENT;
+  } catch (const vctk::RuntimeError &e) {
+    spdlog::error("vctk_c runtime error: {}", e.what());
+    write_error(error_message_out, error_message_capacity, e.what());
+    return VCTK_STATUS_RUNTIME_ERROR;
+  } catch (const std::runtime_error &e) {
+    spdlog::error("vctk_c runtime error: {}", e.what());
+    write_error(error_message_out, error_message_capacity, e.what());
+    return VCTK_STATUS_RUNTIME_ERROR;
+  } catch (const std::exception &e) {
+    spdlog::error("vctk_c unknown std::exception: {}", e.what());
+    write_error(error_message_out, error_message_capacity, e.what());
+    return VCTK_STATUS_UNKNOWN_ERROR;
+  } catch (...) {
+    constexpr const char *kMsg = "unknown exception";
+    spdlog::error("vctk_c unknown exception");
+    write_error(error_message_out, error_message_capacity, kMsg);
+    return VCTK_STATUS_UNKNOWN_ERROR;
   }
 }
 
@@ -48,7 +81,7 @@ int vctk_learn_vdp_labels(const double *x_row_major, const int n, const int d,
     return VCTK_STATUS_BAD_PARAMETER;
   }
 
-  try {
+  return run_with_status(error_message_out, error_message_capacity, [&]() {
     Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic,
                                    Eigen::RowMajor>>
         X(x_row_major, n, d);
@@ -88,20 +121,5 @@ int vctk_learn_vdp_labels(const double *x_row_major, const int n, const int d,
     *n_clusters_out = static_cast<int>(clusters.size());
     *free_energy_out = F;
     return VCTK_STATUS_OK;
-  } catch (const std::invalid_argument &e) {
-    write_error(error_message_out, error_message_capacity, e.what());
-    return VCTK_STATUS_INVALID_ARGUMENT;
-  } catch (const vctk::RuntimeError &e) {
-    write_error(error_message_out, error_message_capacity, e.what());
-    return VCTK_STATUS_RUNTIME_ERROR;
-  } catch (const std::runtime_error &e) {
-    write_error(error_message_out, error_message_capacity, e.what());
-    return VCTK_STATUS_RUNTIME_ERROR;
-  } catch (const std::exception &e) {
-    write_error(error_message_out, error_message_capacity, e.what());
-    return VCTK_STATUS_UNKNOWN_ERROR;
-  } catch (...) {
-    write_error(error_message_out, error_message_capacity, "unknown exception");
-    return VCTK_STATUS_UNKNOWN_ERROR;
-  }
+  });
 }

@@ -27,6 +27,7 @@ option(VCTK_BUILD_DOCS "Build Doxygen/Sphinx docs" OFF)
 option(VCTK_USE_SYSTEM_EIGEN "Prefer system-installed Eigen3 before CPM fetch" ON)
 option(VCTK_USE_OPENMP "Enable OpenMP parallel kernels" ON)
 option(VCTK_FETCH_OPENMP "Fetch LLVM OpenMP with CPM if system OpenMP is unavailable" ON)
+option(VCTK_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 set(VCTK_OPENMP_LLVM_TAG "llvmorg-21.1.8" CACHE STRING "LLVM tag to use when fetching OpenMP runtime")
 
 if(VCTK_USE_SYSTEM_EIGEN)
@@ -52,6 +53,30 @@ if(NOT TARGET Eigen3::Eigen)
     target_include_directories(Eigen3::Eigen INTERFACE "${Eigen3_SOURCE_DIR}")
 endif()
 
+CPMAddPackage(
+    NAME fmt
+    GITHUB_REPOSITORY fmtlib/fmt
+    GIT_TAG 11.2.0
+    OPTIONS "FMT_TEST OFF" "FMT_DOC OFF" "FMT_INSTALL ON"
+)
+
+CPMAddPackage(
+    NAME spdlog
+    GITHUB_REPOSITORY gabime/spdlog
+    GIT_TAG v1.15.3
+    OPTIONS
+        "SPDLOG_BUILD_EXAMPLE OFF"
+        "SPDLOG_BUILD_TESTS OFF"
+        "SPDLOG_BUILD_BENCH OFF"
+        "SPDLOG_FMT_EXTERNAL ON"
+)
+
+CPMAddPackage(
+    NAME CLI11
+    GITHUB_REPOSITORY CLIUtils/CLI11
+    GIT_TAG v2.4.2
+)
+
 file(GLOB_RECURSE VCTK_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
@@ -65,9 +90,28 @@ target_include_directories(vctk
 
 target_link_libraries(vctk
     PUBLIC
-    Eigen3::Eigen)
+    Eigen3::Eigen
+    PRIVATE
+    $<BUILD_INTERFACE:fmt::fmt>
+    $<BUILD_INTERFACE:spdlog::spdlog_header_only>)
 
 target_compile_features(vctk PUBLIC cxx_std_20)
+
+function(vctk_apply_warnings target_name)
+    if(MSVC)
+        target_compile_options(${target_name} PRIVATE /W4)
+        if(VCTK_WARNINGS_AS_ERRORS)
+            target_compile_options(${target_name} PRIVATE /WX)
+        endif()
+    else()
+        target_compile_options(${target_name} PRIVATE -Wall -Wextra -Wpedantic)
+        if(VCTK_WARNINGS_AS_ERRORS)
+            target_compile_options(${target_name} PRIVATE -Werror)
+        endif()
+    endif()
+endfunction()
+
+vctk_apply_warnings(vctk)
 
 if(VCTK_USE_OPENMP)
     if(APPLE)
@@ -124,34 +168,43 @@ if(VCTK_BUILD_TESTS)
     enable_testing()
     add_executable(vctk_comutils_test test/test_comutils.cpp)
     target_link_libraries(vctk_comutils_test PRIVATE vctk::vctk Eigen3::Eigen)
+    vctk_apply_warnings(vctk_comutils_test)
     add_test(NAME comutils_sanity COMMAND vctk_comutils_test)
     add_executable(vctk_probutils_test test/test_probutils.cpp)
     target_link_libraries(vctk_probutils_test PRIVATE vctk::vctk Eigen3::Eigen)
+    vctk_apply_warnings(vctk_probutils_test)
     add_test(NAME probutils_sanity COMMAND vctk_probutils_test)
     add_executable(vctk_distributions_test test/test_distributions.cpp)
     target_link_libraries(vctk_distributions_test PRIVATE vctk::vctk Eigen3::Eigen)
+    vctk_apply_warnings(vctk_distributions_test)
     add_test(NAME distributions_sanity COMMAND vctk_distributions_test)
     add_executable(vctk_algorithms_test test/test_vctk.cpp)
     target_link_libraries(vctk_algorithms_test PRIVATE vctk::vctk Eigen3::Eigen)
+    vctk_apply_warnings(vctk_algorithms_test)
     add_test(NAME algorithms_sanity COMMAND vctk_algorithms_test)
     add_executable(vctk_merge_test test/test_merge.cpp)
     target_link_libraries(vctk_merge_test PRIVATE vctk::vctk Eigen3::Eigen)
+    vctk_apply_warnings(vctk_merge_test)
     add_test(NAME merge_sanity COMMAND vctk_merge_test)
     add_executable(vctk_c_api_test test/test_vctk_c.cpp)
     target_link_libraries(vctk_c_api_test PRIVATE vctk::vctk Eigen3::Eigen)
+    vctk_apply_warnings(vctk_c_api_test)
     add_test(NAME c_api_sanity COMMAND vctk_c_api_test)
 endif()
 
 if(VCTK_BUILD_EXAMPLES)
     add_executable(vctk_vdp_example examples/vdp_example.cpp)
-    target_link_libraries(vctk_vdp_example PRIVATE vctk::vctk Eigen3::Eigen)
+    target_link_libraries(vctk_vdp_example PRIVATE vctk::vctk Eigen3::Eigen spdlog::spdlog_header_only)
+    vctk_apply_warnings(vctk_vdp_example)
     add_executable(vctk_merge_proof_example examples/merge_proof_example.cpp)
-    target_link_libraries(vctk_merge_proof_example PRIVATE vctk::vctk Eigen3::Eigen)
+    target_link_libraries(vctk_merge_proof_example PRIVATE vctk::vctk Eigen3::Eigen spdlog::spdlog_header_only)
+    vctk_apply_warnings(vctk_merge_proof_example)
 endif()
 
 if(VCTK_BUILD_BENCHMARKS)
     add_executable(vctk_bench_vdp bench/vdp_benchmark.cpp)
-    target_link_libraries(vctk_bench_vdp PRIVATE vctk::vctk Eigen3::Eigen)
+    target_link_libraries(vctk_bench_vdp PRIVATE vctk::vctk Eigen3::Eigen spdlog::spdlog_header_only CLI11::CLI11)
+    vctk_apply_warnings(vctk_bench_vdp)
 endif()
 
 # ─── Installation & export ----------------------------------------------------

@@ -40,7 +40,6 @@ void validate_alpha(const double alpha) {
 
 MatrixXd make_pd(MatrixXd cov) {
   cov = 0.5 * (cov + cov.transpose());
-  const Index d = cov.rows();
   double jitter = kReg;
   for (int i = 0; i < 6; ++i) {
     Eigen::LLT<MatrixXd> llt(cov);

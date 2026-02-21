@@ -1,12 +1,14 @@
 #include <Eigen/Core>
+#include <CLI/CLI.hpp>
 
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
+#include <fmt/format.h>
 #include <fstream>
-#include <iostream>
 #include <numeric>
 #include <random>
+#include <spdlog/spdlog.h>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -42,24 +44,14 @@ struct BenchResult {
   double elapsed_ms{0.0};
 };
 
-int parse_int(const char *value, const std::string &name) {
-  if (value == nullptr) {
-    throw std::invalid_argument("missing value for " + name);
-  }
-  const int v = std::stoi(value);
-  if (v < 1) {
-    throw std::invalid_argument(name + " must be >= 1");
-  }
-  return v;
-}
+struct ArgParseResult {
+  int exit_code{0};
+  bool should_exit{false};
+};
 
-std::vector<int> parse_threads(const char *value) {
-  if (value == nullptr) {
-    throw std::invalid_argument("missing value for --threads");
-  }
-
+std::vector<int> parse_threads(const std::string &value) {
   std::vector<int> out;
-  std::string s(value);
+  const std::string &s = value;
   std::size_t start = 0;
   while (start < s.size()) {
     const std::size_t comma = s.find(',', start);
@@ -80,68 +72,41 @@ std::vector<int> parse_threads(const char *value) {
   return out;
 }
 
-BenchConfig parse_args(int argc, char **argv) {
-  BenchConfig cfg;
-  for (int i = 1; i < argc; ++i) {
-    const std::string arg(argv[i]);
-    if (arg == "--n") {
-      cfg.n = parse_int((i + 1 < argc) ? argv[++i] : nullptr, "--n");
-      continue;
-    }
-    if (arg == "--d") {
-      cfg.d = parse_int((i + 1 < argc) ? argv[++i] : nullptr, "--d");
-      continue;
-    }
-    if (arg == "--k") {
-      cfg.k_true = parse_int((i + 1 < argc) ? argv[++i] : nullptr, "--k");
-      continue;
-    }
-    if (arg == "--reps") {
-      cfg.reps = parse_int((i + 1 < argc) ? argv[++i] : nullptr, "--reps");
-      continue;
-    }
-    if (arg == "--max-clusters") {
-      cfg.max_clusters =
-          parse_int((i + 1 < argc) ? argv[++i] : nullptr, "--max-clusters");
-      continue;
-    }
-    if (arg == "--max-iters") {
-      cfg.max_iters =
-          parse_int((i + 1 < argc) ? argv[++i] : nullptr, "--max-iters");
-      continue;
-    }
-    if (arg == "--split-refine-iters") {
-      cfg.split_refine_iters =
-          parse_int((i + 1 < argc) ? argv[++i] : nullptr, "--split-refine-iters");
-      continue;
-    }
-    if (arg == "--threads") {
-      cfg.thread_counts = parse_threads((i + 1 < argc) ? argv[++i] : nullptr);
-      continue;
-    }
-    if (arg == "--csv") {
-      if (i + 1 >= argc) {
-        throw std::invalid_argument("missing value for --csv");
-      }
-      cfg.csv_path = argv[++i];
-      continue;
-    }
-    if (arg == "--help" || arg == "-h") {
-      std::cout << "Usage: vctk_bench_vdp [options]\n"
-                   "  --n <int>                   number of samples (default 10000)\n"
-                   "  --d <int>                   feature dimension (default 8)\n"
-                   "  --k <int>                   true synthetic clusters (default 8)\n"
-                   "  --reps <int>                repeated runs per thread count (default 5)\n"
-                   "  --max-clusters <int>        max VDP clusters (default 24)\n"
-                   "  --max-iters <int>           max VBEM iters (default 150)\n"
-                   "  --split-refine-iters <int>  split refine iters (default 20)\n"
-                   "  --threads <csv>             thread counts, e.g. 1,2,4,8\n"
-                   "  --csv <path>                output CSV path\n";
-      std::exit(0);
-    }
-    throw std::invalid_argument("unknown argument: " + arg);
+ArgParseResult parse_args(int argc, char **argv, BenchConfig &cfg) {
+  std::string thread_counts_csv = "1,2,4,8";
+  CLI::App app{"vctk_bench_vdp: benchmark VDP on synthetic data"};
+  app.add_option("--n", cfg.n, "number of samples")->check(CLI::PositiveNumber);
+  app.add_option("--d", cfg.d, "feature dimension")->check(CLI::PositiveNumber);
+  app.add_option("--k", cfg.k_true, "true synthetic clusters")
+      ->check(CLI::PositiveNumber);
+  app.add_option("--reps", cfg.reps, "repeated runs per thread count")
+      ->check(CLI::PositiveNumber);
+  app.add_option("--max-clusters", cfg.max_clusters, "max VDP clusters")
+      ->check(CLI::PositiveNumber);
+  app.add_option("--max-iters", cfg.max_iters, "max VBEM iterations")
+      ->check(CLI::PositiveNumber);
+  app.add_option("--split-refine-iters", cfg.split_refine_iters,
+                 "split refine iterations")
+      ->check(CLI::PositiveNumber);
+  app.add_option("--threads", thread_counts_csv,
+                 "thread counts CSV, e.g. 1,2,4,8");
+  app.add_option("--csv", cfg.csv_path, "output CSV path");
+
+  try {
+    app.parse(argc, argv);
+  } catch (const CLI::ParseError &e) {
+    return ArgParseResult{app.exit(e), true};
   }
-  return cfg;
+
+  try {
+    cfg.thread_counts = parse_threads(thread_counts_csv);
+  } catch (const std::exception &e) {
+    spdlog::error("invalid --threads value '{}': {}", thread_counts_csv,
+                  e.what());
+    return ArgParseResult{1, true};
+  }
+
+  return ArgParseResult{};
 }
 
 Eigen::MatrixXd make_synthetic(const BenchConfig &cfg) {
@@ -220,7 +185,8 @@ void write_csv(const std::string &csv_path, const std::vector<BenchResult> &rows
 
   std::ofstream out(csv_path);
   if (!out) {
-    throw std::runtime_error("failed to open benchmark CSV for writing");
+    throw std::runtime_error(
+        fmt::format("failed to open benchmark CSV for writing: {}", csv_path));
   }
 
   out << "n,d,k_true,threads,run_idx,clusters_found,free_energy,elapsed_ms\n";
@@ -245,7 +211,7 @@ double median_ms(std::vector<double> v) {
 
 void print_summary(const std::vector<BenchResult> &rows,
                    const std::vector<int> &thread_counts) {
-  std::cout << "\nSummary (median elapsed ms)\n";
+  spdlog::info("Summary (median elapsed ms)");
   for (int t : thread_counts) {
     std::vector<double> times;
     for (const auto &r : rows) {
@@ -254,8 +220,7 @@ void print_summary(const std::vector<BenchResult> &rows,
       }
     }
     if (!times.empty()) {
-      std::cout << "  threads=" << t << " median_ms=" << median_ms(times)
-                << '\n';
+      spdlog::info("  threads={} median_ms={}", t, median_ms(times));
     }
   }
 }
@@ -263,18 +228,25 @@ void print_summary(const std::vector<BenchResult> &rows,
 } // namespace
 
 int main(int argc, char **argv) {
+  BenchConfig cfg;
   try {
-    const BenchConfig cfg = parse_args(argc, argv);
+    const ArgParseResult parse_result = parse_args(argc, argv, cfg);
+    if (parse_result.should_exit) {
+      return parse_result.exit_code;
+    }
     const Eigen::MatrixXd X = make_synthetic(cfg);
 
-    std::cout << "Benchmarking VDP on synthetic data\n";
-    std::cout << "N=" << cfg.n << " D=" << cfg.d << " K_true=" << cfg.k_true
-              << " reps=" << cfg.reps << '\n';
-    std::cout << "Threads:";
+    spdlog::info("Benchmarking VDP on synthetic data");
+    spdlog::info("N={} D={} K_true={} reps={}", cfg.n, cfg.d, cfg.k_true,
+                 cfg.reps);
+    std::string thread_list;
     for (const int t : cfg.thread_counts) {
-      std::cout << ' ' << t;
+      if (!thread_list.empty()) {
+        thread_list += ",";
+      }
+      thread_list += std::to_string(t);
     }
-    std::cout << '\n';
+    spdlog::info("Threads: {}", thread_list);
 
     std::vector<BenchResult> rows;
     rows.reserve(static_cast<std::size_t>(cfg.reps * cfg.thread_counts.size()));
@@ -284,19 +256,18 @@ int main(int argc, char **argv) {
         const BenchResult row = run_once(X, cfg, t, r);
         rows.push_back(row);
 
-        std::cout << "  run threads=" << t << " rep=" << (r + 1) << "/"
-                  << cfg.reps << " elapsed_ms=" << row.elapsed_ms
-                  << " clusters=" << row.clusters_found << '\n';
+        spdlog::info("  run threads={} rep={}/{} elapsed_ms={} clusters={}", t,
+                     (r + 1), cfg.reps, row.elapsed_ms, row.clusters_found);
       }
     }
 
     write_csv(cfg.csv_path, rows);
     print_summary(rows, cfg.thread_counts);
 
-    std::cout << "Wrote benchmark CSV: " << cfg.csv_path << '\n';
+    spdlog::info("Wrote benchmark CSV: {}", cfg.csv_path);
     return 0;
   } catch (const std::exception &e) {
-    std::cerr << "Error: " << e.what() << '\n';
+    spdlog::error("Error: {}", e.what());
     return 1;
   }
 }

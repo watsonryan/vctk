@@ -1,7 +1,8 @@
 #include <Eigen/Core>
 
 #include <cmath>
-#include <iostream>
+#include <limits>
+#include <spdlog/spdlog.h>
 #include <random>
 #include <vector>
 
@@ -92,27 +93,26 @@ int main() {
       }
     }
 
-    std::cout << "Merge proof run\n";
-    std::cout << "Batch1 inferred components: " << prior.size() << "\n";
-    std::cout << "Batch2 inferred components: " << curr.size() << "\n";
-    std::cout << "Equivalent components between batch1 and batch2: " << overlap_matches
-              << "\n";
-    std::cout << "Merged global components: " << merged.size() << "\n\n";
-
-    std::cout << "Merged component means (x,y):\n";
+    spdlog::info("Merge proof run");
+    spdlog::info("Batch1 inferred components: {}", prior.size());
+    spdlog::info("Batch2 inferred components: {}", curr.size());
+    spdlog::info("Equivalent components between batch1 and batch2: {}",
+                 overlap_matches);
+    spdlog::info("Merged global components: {}", merged.size());
+    spdlog::info("Merged component means (x,y):");
     for (std::size_t i = 0; i < merged.size(); ++i) {
-      std::cout << "  [" << i << "] (" << merged[i].mean(0) << ", " << merged[i].mean(1)
-                << "), min_dist_to_batch1="
-                << min_mean_distance(merged[i], prior) << "\n";
+      spdlog::info("  [{}] ({}, {}), min_dist_to_batch1={}", i,
+                   merged[i].mean(0), merged[i].mean(1),
+                   min_mean_distance(merged[i], prior));
     }
 
     const bool expected = (prior.size() == 2 && curr.size() == 3 && overlap_matches >= 2 &&
                            merged.size() == 3);
-    std::cout << "\nExpected behavior (2 + 3 with 2 overlaps -> 3 merged): "
-              << (expected ? "PASS" : "CHECK") << "\n";
+    spdlog::info("Expected behavior (2 + 3 with 2 overlaps -> 3 merged): {}",
+                 expected ? "PASS" : "CHECK");
     return expected ? 0 : 1;
   } catch (const std::exception &e) {
-    std::cerr << "Error: " << e.what() << "\n";
+    spdlog::error("Error: {}", e.what());
     return 1;
   }
 }

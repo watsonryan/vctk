@@ -6,6 +6,7 @@
 #include <Eigen/Cholesky>
 #include <algorithm>
 #include <cmath>
+#include <fmt/format.h>
 #include <limits>
 #include <numbers>
 #include <ranges>
@@ -39,7 +40,7 @@ void throw_if_non_finite(double value, const char *name) {
     throw vctk::RuntimeError(
         vctk::ErrorCode::NumericalFailure,
         vctk::ErrorContext{"distributions", "non_finite_check", -1, 0, 0.0,
-                           std::string(name) + " is non-finite"});
+                           fmt::format("{} is non-finite", name)});
 }
 
 template <typename Derived>
@@ -49,7 +50,7 @@ void throw_if_non_finite_mat(const Eigen::MatrixBase<Derived> &m,
     throw vctk::RuntimeError(
         vctk::ErrorCode::NumericalFailure,
         vctk::ErrorContext{"distributions", "non_finite_check", -1, 0, 0.0,
-                           std::string(name) + " contains non-finite values"});
+                           fmt::format("{} contains non-finite values", name)});
 }
 
 } // namespace
@@ -254,7 +255,7 @@ Eigen::VectorXd GaussWish::Eloglike(Eigen::Ref<const Eigen::MatrixXd> X) const {
     throw vctk::RuntimeError(
         vctk::ErrorCode::NumericalFailure,
         vctk::ErrorContext{"distributions", "GaussWish::Eloglike", -1, 0, 0.0,
-                           std::string("GaussWish::Eloglike: ") + e.what()});
+                           fmt::format("GaussWish::Eloglike: {}", e.what())});
   }
   return const_term - 0.5 * nu_ * quad.array();
 }
